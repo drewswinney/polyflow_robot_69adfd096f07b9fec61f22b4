@@ -4,7 +4,7 @@
   "entry_point": "odrive_s1/node.py",
   "topics": [
     {
-      "name": "/joint/state",
+      "name": "state",
       "direction": "publish",
       "msg_type": "sensor_msgs/JointState",
       "qos": {
@@ -14,20 +14,26 @@
       }
     },
     {
-      "name": "/joint_controller/command",
+      "name": "trajectory",
       "direction": "subscribe",
-      "msg_type": "trajectory_msgs/JointTrajectory",
+      "msg_type": "trajectory_msgs/JointTrajectoryPoint",
       "qos": {
         "reliability": "reliable",
         "history": "keep_last",
         "depth": 10
       }
+    },
+    {
+      "name": "mode",
+      "direction": "subscribe",
+      "msg_type": "std_msgs/String",
+      "allowed_values": ["position", "velocity", "torque"]
     }
   ],
   "services": [],
   "actions": [],
   "parameters_schema": {
-    "joint": {
+    "joint_id": {
       "label": "Joint",
       "requiresInstance": true,
       "type": "entity",
@@ -43,14 +49,6 @@
         "label_field": "name"
       },
       "ui": { "group": "Joint", "order": 1 }
-    },
-
-    "control_mode": {
-      "label": "Control Mode",
-      "type": "enum",
-      "values": ["velocity", "position", "torque"],
-      "default": "position",
-      "ui": { "group": "Control", "order": 2 }
     },
 
     "transport": {
@@ -164,7 +162,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.lower_position"
       },
       "editable": false,
@@ -176,7 +174,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.upper_position"
       },
       "editable": false,
@@ -188,7 +186,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.position_step"
       },
       "editable": false,
@@ -200,7 +198,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.max_effort"
       },
       "editable": false,
@@ -212,7 +210,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.effort_step"
       },
       "editable": false,
@@ -224,7 +222,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.max_velocity"
       },
       "editable": false,
@@ -236,7 +234,7 @@
       "type": "number",
       "source": "entity_property",
       "binding": {
-        "from_param": "joint",
+        "from_param": "joint_id",
         "field_path": "limit.velocity_step"
       },
       "editable": false,

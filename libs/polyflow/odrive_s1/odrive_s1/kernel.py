@@ -18,8 +18,8 @@ class ODriveS1Kernel(PolyflowKernel):
     """
 
     def setup(self):
-        self.joint_id = self.get_param("joint")
-        self.control_mode = self.get_param("control_mode", "position")
+        self.joint_id = self.get_param("joint_id")
+        self.control_mode = "position"
 
         # Gear ratio: motor_turns = output_turns * gear_ratio
         gear_ratio = float(self.get_param("gear_ratio", 1.0))
@@ -69,13 +69,47 @@ class ODriveS1Kernel(PolyflowKernel):
         return round(value / float(step)) * float(step)
 
     def process_input(self, pin_id: str, data: dict):
+        self.log(f"process_input called: pin_id={pin_id}, joint_id={self.joint_id}, data_type={type(data).__name__}")
+
+        if pin_id == "mode":
+            # std_msgs/String format: {"data": "position"}
+            raw = data.get("data") if isinstance(data, dict) else None
+            if isinstance(raw, str) and raw.strip() in ("position", "velocity", "torque"):
+                self.control_mode = raw.strip()
+                self.emit("state", {"control_mode": self.control_mode})
+            return
+
         if not self.should_run(trigger_info={'pin_id': pin_id}):
+            self.log(f"should_run returned False for pin_id={pin_id}")
             return
 
         if pin_id != "trajectory":
+            self.log(f"pin_id '{pin_id}' != 'trajectory', skipping")
             return
 
-        # The trajectory pin carries a JSON string inside a String msg
+        # Format 1: JointTrajectoryPoint with name[] + positions[] arrays (from IK / upstream nodes)
+        names = data.get("name", [])
+        positions = data.get("positions", [])
+        self.log(f"trajectory input: names={list(names)}, positions={list(positions)}")
+        if names and positions:
+            try:
+                idx = list(names).index(self.joint_id)
+            except ValueError:
+                self.log(f"joint_id '{self.joint_id}' not found in names {list(names)}")
+                return  # This command isn't for our joint
+            position = float(positions[idx])
+            velocity = None
+            effort = None
+            velocities = data.get("velocities", [])
+            efforts = data.get("effort", data.get("efforts", []))
+            if velocities and len(velocities) > idx:
+                velocity = float(velocities[idx])
+            if efforts and len(efforts) > idx:
+                effort = float(efforts[idx])
+            self._compute_command(self.joint_id, position, velocity, effort)
+            return
+
+        # Format 2: JSON string envelope from sidebar controls (legacy)
         raw_json = data.get("data")
         if not raw_json:
             return
@@ -90,7 +124,6 @@ class ODriveS1Kernel(PolyflowKernel):
             self.log("Trajectory payload must be an object")
             return
 
-        # Check if the command is for the joint this node controls
         joint_id = trajectory.get("jointId") or trajectory.get("joint_id")
         if joint_id != self.joint_id:
             return
